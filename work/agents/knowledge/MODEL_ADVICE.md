@@ -130,7 +130,7 @@ account/device, not per key. All down → re-probe hourly.
 
 ## Pick a preset
 
-Ready-made route order + roster for each shape of account live in [`tools/presets.toml`](../../tools/presets.toml):
+Ready-made route order + roster for each shape of account live in [`tools/presets.toml`](../../../tools/presets.toml):
 
 - `solo-claude` — one Claude subscription ($20 Pro); Producer Sonnet + Sonnet and Haiku Workers, alarm carries the night.
 - `claude-max-100` — our setup: Claude Max $100 (Producer Opus high, Sonnet Workers) + Codex Plus $20 (Luna gate / Sol by request) + OpenCode Go (DeepSeek bulk) + free Space Bunny / Muse / MiMo.

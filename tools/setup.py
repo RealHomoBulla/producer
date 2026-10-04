@@ -744,8 +744,8 @@ def render_review(families: tuple[str, ...]) -> list[str]:
     return [
         "[review]",
         "# Model families that can review commits (best first). The reviewer must not be a family that",
-        "# wrote the batch; with one vendor only, `commit_review.py open --accept-same-family` records a",
-        "# weaker same-family review knowingly.",
+        "# wrote the batch; with one vendor only, `commit_review.py open` falls back to a fresh-session",
+        "# same-family review by itself (marked «weaker»); `--require-independent` refuses instead.",
         f"reviewers = [{joined}]",
         "",
     ]

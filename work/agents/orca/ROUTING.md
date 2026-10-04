@@ -82,8 +82,8 @@ Guardian's wake-up alarm carry the night: on `5-hour limit reached ∙ resets 7p
 
 ## Roster
 
-_The owner's current worker roster (his words + date). Empty until he names one; `tools/setup.py` proposes a default from
-the routes that probed live._
+The owner's worker roster lives in **`producer.toml` `[[roster]]`** — one home: the Guardian counts those seats and
+`tools/setup.py` proposes a default. Record his wording and the date in a comment above the seat. This page keeps no second roster.
 
 ## Credentials
 

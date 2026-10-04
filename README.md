@@ -14,8 +14,9 @@ pages and the Producer's talk are in the language you choose in setup (default R
 Follow these steps exactly, in order; do not guess. Speak to the user in their language, keep messages short.
 
 1. **Clone.** `git clone https://github.com/RealHomoBulla/producer <folder>` (or use the folder the user made from the GitHub
-   template). Never push to the template repository: `python tools/setup.py` renames a template `origin` to `template`, disables
-   pushing to it and prints how to create the user's own repo.
+   template; a plain copy or a ZIP is fine too — run `git init` first, `python tools/setup.py` does it as well). Never push to
+   the template repository: `python tools/setup.py` renames a template `origin` to `template`, disables pushing to it and prints
+   how to create the user's own repo.
 2. **Check the machine.** `cd <folder>` then `python tools/producer.py doctor`. It is read-only and prints `ok / WARN / FAIL`
    with the fix for each line. Python 3.11+ and Git are required (on Windows install `tzdata` so time-zone names
    resolve); fix every `FAIL` before going on.
@@ -82,8 +83,8 @@ Follow these steps exactly, in order; do not guess. Speak to the user in their l
   `work/ДАЙДЖЕСТ.md` — что сделано, в `work/БЕЗ_ОТВЕТА.md` — твои вопросы, в `work/ROADMAP.md` — прогресс. Если кончилась
   недельная квота, всё встанет до её сброса: продюсер напишет об этом в дайджесте.
 - **Ночью без вопросов про разрешения.** Чтобы Claude не останавливался на каждом запросе разрешения, нужен флаг пропуска
-  разрешений: `python tools/setup.py --preset solo-claude --unattended`. Он включается **только** по твоему слову и только для
-  папки, которую агентам не страшно править свободно. Без него ночью агент встанет на первом вопросе.
+  разрешений: `python tools/setup.py --preset solo-claude --unattended`. Он включается, если при настройке выбран режим **a**
+   (без подтверждений) и только для папки, которую агентам не страшно править свободно. Без него ночью агент встанет на первом вопросе.
 - **Как делятся файлы.** Пример разбивки сайта на «анимации / тексты / вёрстка» так, чтобы двое никогда не правили один файл, —
   `work/agents/orca/DISPATCH.md`, раздел «Worked example».
 

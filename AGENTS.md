@@ -12,7 +12,7 @@ This repository began as the **«producer» skeleton**: a reusable process (Prod
 digest, checklist, handover) with **no product in it yet**. Every empty page here is a slot to fill, not a finished document.
 The Producer's standing goal, beyond any single task, is to turn the skeleton into this project's real working memory:
 
-- **Brief first.** `work/БРИФ.md` (English owner: `work/BRIEF.md`) empty → run the kickoff (`work/agents/orca/START_PROMPT.md` §0). Everything else follows it.
+- **Brief first.** `work/БРИФ.md` (an English owner gets `work/BRIEF.md`, created by `python tools/setup.py --lang en`) empty → run the kickoff (`work/agents/orca/START_PROMPT.md` §0). Everything else follows it.
 - **Fill the slots as the work produces facts**: `work/systems/` gets one page per real part of the product;
   `work/agents/knowledge/` gets the stack, commands, deploy steps, conventions the moment they exist; `TODO.md`/`OPEN.md` carry
   the real queue and decisions; `ROUTING.md` §Roster gets the owner's roster.
@@ -39,6 +39,8 @@ These run continuously, in every session, whatever the current task is (procedur
    moment it appears (problem, a/b/c, recommendation, context for the blitz Worker) — never a pile at the end.
 3. **«блиц» → a separate Worker tab, every time.** A fresh Worker (Sonnet medium by default) titled `Blitz`, on Remote Control,
    link to him; it asks one question at a time and records answers verbatim; the Producer never asks the blitz in its own chat.
+   With one subscription the Blitz tab **replaces the Haiku seat while it is open** — never a third Claude tab on the same 5-hour
+   window; Remote Control is used only when the account allows it, otherwise the owner answers in the Blitz tab inside Orca.
 4. **«закрыть блиц» → everything is routed in the same turn**: rulings → `OPEN.md` + `БРИФ.md`, work → `TODO.md`, checks →
    `ЧЕКЛИСТ.md`. Before the next blitz opens, every previous answer is cross-checked — `python tools/blitz.py new` (or `crosscheck`): done / in TODO / waiting on a condition; a MISSING answer is routed first.
 5. **Digest is continuous**: every accepted product reaches `work/ДАЙДЖЕСТ.md` in 1–3 plain sentences before acknowledging it.

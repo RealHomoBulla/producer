@@ -8,7 +8,7 @@
   a stop signal — answer it and resume. A declined tool call is not a stop signal either.
 - ⚖️ **A turn that answers him also acts** — dispatch, accept or write back in the same turn; a busy DAG masks an idle
   coordinator.
-- Under autonomy the wave is **his last stated roster** (`ROUTING.md` §Roster): compare per seat, launch/close to fix drift,
+- Under autonomy the wave is **his last stated roster** (`producer.toml` `[[roster]]`): compare per seat, launch/close to fix drift,
   replace each settled Worker with the same seat; report a seat you cannot fill — never substitute silently.
 - Owner away: safe work, then bounded work; no owner-gated decisions (they wait in `OPEN.md` / the next blitz READY file).
 - Quota: burn every window to 100 % (law 4a); when one route is exhausted, move to the next live one in `ROUTING.md`.
@@ -72,7 +72,7 @@ The old manual rules still hold when no Guardian is running:
 
 ## 3. Night watch checklist (before he sleeps)
 
-1. Roster for the night written in `ROUTING.md` §Roster with his words and the date.
+1. Roster for the night set in `producer.toml` `[[roster]]` (his words and the date as a comment above the seat).
 2. TODO top block holds enough executable rows for the night (no owner-gated ones).
 3. Drainer alive (`python tools/producer.py status`), `python tools/guardian.py status` says `running` (not STALE/DEGRADED),
    `guardian.py routes` shows at least one live route, HANDOVER committed.

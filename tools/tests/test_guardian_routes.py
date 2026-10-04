@@ -317,9 +317,10 @@ def test_legacy_producer_command_becomes_a_single_route():
 def test_single_claude_preset_replaces_routes_and_roster_and_parses(workdir, monkeypatch, capsys):
     monkeypatch.setattr(guardian.paths, "PROJECT", workdir)
     (workdir / "producer.toml").write_text(SAMPLE, encoding="utf-8")
-    assert guardian.main(["preset", "single-claude"]) == 0  # print only
+    assert guardian.main(["preset", "single-claude"]) == 0  # legacy alias, print only
+    assert guardian.main(["preset", "solo-claude"]) == 0    # setup.py's name is the same preset
     assert (workdir / "producer.toml").read_text(encoding="utf-8") == SAMPLE
-    assert guardian.main(["preset", "single-claude", "--apply"]) == 0
+    assert guardian.main(["preset", "solo-claude", "--apply"]) == 0
     config = guardian.load_config(workdir)
     assert [r.name for r in config.routes] == ["claude-sonnet"]
     assert [s.name for s in config.roster] == ["sonnet", "haiku"]

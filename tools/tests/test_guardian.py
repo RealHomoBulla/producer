@@ -374,3 +374,16 @@ def test_filled_brief_bootstrap_has_no_kickoff_note(workdir):
     guardian_obj.tick(now=100.0)
     sent = next(t for t in _sent(fake) if t.startswith("BOOTSTRAP-PROMPT"))
     assert "kickoff" not in sent
+
+
+def test_brief_is_empty_reads_the_owners_language_name_and_only_the_status_line(workdir):
+    """C1/C2: an English owner's `BRIEF.md`, and a "not filled" phrase outside the status line."""
+    guardian_obj, _fake, _clock = harness(workdir, make_config(), autonomy=False)
+    (guardian_obj.project / "producer.toml").write_text(
+        '[project]\nowner_language = "en"\n', encoding="utf-8")
+    brief = guardian_obj.project / "work" / "BRIEF.md"
+    brief.parent.mkdir(parents=True, exist_ok=True)
+    brief.write_text("# Brief\n\nStatus: not filled in.\n\n## 8. Materials: not filled yet.\n", encoding="utf-8")
+    assert guardian_obj.brief_is_empty() is True
+    brief.write_text("# Brief\n\nStatus: filled. A bread shop.\n\n## 8. Materials: not filled yet.\n", encoding="utf-8")
+    assert guardian_obj.brief_is_empty() is False  # the phrase outside the status line does not trigger it

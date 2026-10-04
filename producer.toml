@@ -32,7 +32,7 @@ worker_idle_minutes = 15       # a Worker screen unchanged this long -> tell the
 seat_max_hours = 3             # Producer seat age -> type ROTATE NOW (a successor starts only after HANDOVER is committed)
 producer_title = "Producer"
 # Used ONLY when no [[producer_routes]] exist (single-command setups). Routes below win.
-producer_command = "claude --model claude-opus-5-5 --effort high --dangerously-skip-permissions"
+producer_command = "claude --model claude-opus-5-5 --effort high"
 bootstrap_prompt = "You are the Producer. Read work/agents/orca/START_PROMPT.md in full, then continue. Run `python tools/guardian.py autonomy status` for the autonomy mode."
 ignore_titles = ["Blitz"]      # the owner's own tabs: never counted, typed into or closed
 recover_minutes = 30           # a limited route is retried this long after the limit (or at its parsed reset time)
@@ -122,7 +122,7 @@ titles = ["Producer", "Blitz"]
 name = "sonnet"
 title_prefix = "Sonnet"
 count = 1
-command = "claude --model claude-sonnet-5-5 --effort medium --dangerously-skip-permissions"
+command = "claude --model claude-sonnet-5-5 --effort medium"
 
 [[roster]]
 name = "deepseek"

@@ -1484,14 +1484,40 @@ class Guardian:
         return True, "HANDOVER committed"
 
     # ------------------------------------------------------------ launch + bootstrap
-    def brief_is_empty(self) -> bool:
-        """``work/БРИФ.md`` missing, or still carrying the template's «не заполнен» status line."""
+    def _brief_path(self) -> Path:
+        """The project's brief page, named for the owner's language (`paths.PAGE_NAMES`), never a hard-coded name."""
+        language = "ru"
         try:
-            text = (self.project / "work" / "БРИФ.md").read_text(encoding="utf-8")
+            import tomllib
+            data = tomllib.loads((self.project / "producer.toml").read_text(encoding="utf-8"))
+            language = str((data.get("project") or {}).get("owner_language") or "ru").strip().lower()
+        except (OSError, ValueError):
+            pass
+        preferred = "en" if language.startswith("en") else "ru"
+        names = [paths.PAGE_NAMES[preferred]["brief"]]
+        names += [table["brief"] for table in paths.PAGE_NAMES.values() if table["brief"] not in names]
+        candidates = [self.project / "work" / name for name in names]
+        return next((c for c in candidates if c.exists()), candidates[0])
+
+    def brief_is_empty(self) -> bool:
+        """True only when the brief is missing or its STATUS LINE still says «not filled in».
+
+        Resolves the page by the owner's language and tests the status line alone, so a filled brief
+        that keeps the phrase somewhere else does not keep re-triggering the kickoff note.
+        """
+        try:
+            text = self._brief_path().read_text(encoding="utf-8")
         except OSError:
             return True
-        low = text.casefold()
-        return not text.strip() or "не заполнен" in low or "not filled" in low
+        if not text.strip():
+            return True
+        status = ""
+        for line in text.splitlines():
+            stripped = line.lstrip("_*# ").strip().casefold()
+            if stripped.startswith(("статус", "status")):
+                status = stripped
+                break
+        return "не заполнен" in status or "not filled" in status
 
     def _bootstrap_text(self, binding: dict) -> str:
         prompt = self.config.bootstrap_prompt.strip()
@@ -2727,8 +2753,9 @@ def apply_preset(text: str, preset: str) -> str:
 
 
 def command_preset(args: argparse.Namespace) -> int:
-    if args.name != "single-claude":
-        print(f"unknown preset {args.name!r}; available: single-claude", file=sys.stderr)
+    # One name everywhere: `solo-claude` (setup.py's name) is the same preset as the legacy `single-claude`.
+    if args.name not in ("single-claude", "solo-claude"):
+        print(f"unknown preset {args.name!r}; available: solo-claude", file=sys.stderr)
         return 1
     if not args.apply:
         print(PRESET_SINGLE_CLAUDE)
@@ -2740,7 +2767,7 @@ def command_preset(args: argparse.Namespace) -> int:
     except (OSError, ValueError) as exc:
         print(f"producer.toml not changed: {exc}", file=sys.stderr)
         return 1
-    print("preset single-claude applied to producer.toml")
+    print("preset solo-claude applied to producer.toml")
     return 0
 
 
@@ -2780,7 +2807,7 @@ def build_parser() -> argparse.ArgumentParser:
     route.add_argument("--enable", default="", help="set enabled = true on this route")
     route.set_defaults(handler=command_route)
 
-    preset = sub.add_parser("preset", help="print or apply a route+roster preset (single-claude)")
+    preset = sub.add_parser("preset", help="print or apply a route+roster preset (solo-claude)")
     preset.add_argument("name")
     preset.add_argument("--apply", action="store_true", help="write it into producer.toml")
     preset.set_defaults(handler=command_preset)
