@@ -1,0 +1,131 @@
+# producer.toml — settings for the generic Producer toolchain.
+#
+# This file is the ONE place the tools read project identity from. Every path a tool
+# needs is derived here and resolved by tools/paths.py; no other file hard-codes one.
+
+[project]
+name = "producer"
+timezone = "UTC"                 # an IANA name (Europe/Berlin) or an offset (UTC+02:00); setup.py fills the OS value
+owner_language = "ru"
+
+[paths]
+# Where the owner's model keys live. OUTSIDE the repository on purpose.
+keys_file = "~/.config/producer/keys.env"
+
+[orca]
+# The Orca Run this Producer drives. Empty means "not bound yet"; tools that need a Run
+# will fall back to --run or to producer-supervisor.json's activeRunId.
+run = ""
+
+[knowledge]
+# Product globs whose change requires a knowledge write-back. Empty = the gate is off.
+# A glob is matched against a repo-relative POSIX path (fnmatch).
+product_globs = []
+
+[guardian]
+# The small generic Guardian (tools/guardian.py); how-to: work/agents/knowledge/GUARDIAN.md.
+# Any agent CLI works. `python tools/guardian.py start` opens ONE Producer tab if this project has none
+# (even with autonomy OFF); autonomy ON adds nudges, roster reminders, the limit alarm and rotation.
+interval_seconds = 60          # >= 5; a running Guardian reloads this file when it changes
+idle_nudge_minutes = 10        # Producer screen unchanged this long while autonomy ON -> nudge
+worker_idle_minutes = 15       # a Worker screen unchanged this long -> tell the Producer
+seat_max_hours = 3             # Producer seat age -> type ROTATE NOW (a successor starts only after HANDOVER is committed)
+producer_title = "Producer"
+# Used ONLY when no [[producer_routes]] exist (single-command setups). Routes below win.
+producer_command = "claude --model claude-opus-5-5 --effort high --dangerously-skip-permissions"
+bootstrap_prompt = "You are the Producer. Read work/agents/orca/START_PROMPT.md in full, then continue. Run `python tools/guardian.py autonomy status` for the autonomy mode."
+ignore_titles = ["Blitz"]      # the owner's own tabs: never counted, typed into or closed
+recover_minutes = 30           # a limited route is retried this long after the limit (or at its parsed reset time)
+wake_delay_seconds = 120       # the alarm wakes a limited seat this long after its parsed reset time
+sleep_retry_minutes = 30       # reset time unreadable -> retry this often
+absent_confirm_ticks = 2       # a bound Producer must be missing this many good reads in a row to count as dead
+limit_confirm_ticks = 2        # a limit message must show this many ticks in a row
+require_checkpoint = true      # rotation also waits for a fresh .runtime/producer-checkpoint.json
+
+# Producer routes, best first. A limit message on the screen, or a dead Producer whose probe fails, hands the seat to
+# the next live route; a recovered higher route is returned to at the next rotation.
+#   command         the exact launch line (tab shell). Keys come from [paths] keys_file, never from this file.
+#   args_unattended appended ONLY while autonomy is ON (this is where the permission-bypass flag lives; delete it to
+#                   keep permission prompts)
+#   keys            true = source the keys file into the launched shell first (env-prefixed lines need a POSIX shell)
+#   shell_windows   `--shell` for the tab on Windows only (git-bash for env-prefixed lines)
+#   agent           what Orca reports as the pane's agent (claude | codex | opencode): a surviving shell = dead Producer
+#   limit_patterns  regexes (case-insensitive) matched on the LAST lines of the screen
+#   probe           optional shell command, exit 0 = alive (run with the keys loaded; use it for liveness, not quota)
+#   enabled         false = skipped
+[[producer_routes]]
+name = "claude-opus"
+title = "Producer Claude Opus"
+agent = "claude"
+command = "claude --model claude-opus-5-5 --effort high"
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ['usage limit', '\d-hour limit', 'weekly limit', 'rate limit', 'out of credits', '\b429\b']
+probe = "claude --version"
+
+[[producer_routes]]
+name = "codex-luna"
+title = "Producer Codex Luna"
+agent = "codex"
+command = "codex -m gpt-6-luna -c model_reasoning_effort=max"
+limit_patterns = ['usage limit', 'try again at', 'rate limit', 'out of credits', '\b429\b']
+probe = "codex --version"
+
+[[producer_routes]]
+name = "claude-opencode-go-deepseek"
+title = "Producer Claude via OpenCode Go"
+agent = "claude"
+keys = true
+shell_windows = "git-bash"
+command = '''CLAUDE_CODE_SIMPLE=1 env -u ANTHROPIC_API_KEY ANTHROPIC_BASE_URL=https://opencode.ai/zen/go ANTHROPIC_AUTH_TOKEN="$OPENCODE_API_KEY" claude --model opencode-go/deepseek-v4.1-flash --effort medium'''
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ['usage limit', 'rate limit', 'out of credits', '\b429\b']
+probe = '''curl -sS --fail -o /dev/null --max-time 25 https://opencode.ai/zen/go/v1/messages -H "x-api-key: $OPENCODE_API_KEY" -H "anthropic-version: 2023-06-01" -H "x-opencode-session: probe" -H "content-type: application/json" -d '{"model":"deepseek-v4.1-flash","max_tokens":16,"messages":[{"role":"user","content":"ping"}]}' '''
+
+[[producer_routes]]
+name = "claude-openrouter-deepseek"
+title = "Producer Claude via OpenRouter"
+agent = "claude"
+keys = true
+shell_windows = "git-bash"
+command = '''CLAUDE_CODE_SIMPLE=1 env -u ANTHROPIC_API_KEY ANTHROPIC_BASE_URL=https://openrouter.ai/api ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY" CLAUDE_CODE_MAX_CONTEXT_TOKENS=1048576 claude --model deepseek/deepseek-v4.1-flash --effort medium'''
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ['usage limit', 'rate limit', 'out of credits', 'insufficient credits', '\b429\b', '\b402\b']
+# /models is public (HTTP 200 with any key), so the probe sends a tiny chat completion: it proves the key AND the credit.
+probe = '''curl -sS --fail -o /dev/null --max-time 30 https://openrouter.ai/api/v1/chat/completions -H "Authorization: Bearer $OPENROUTER_API_KEY" -H "content-type: application/json" -d '{"model":"deepseek/deepseek-v4.1-flash","max_tokens":8,"messages":[{"role":"user","content":"ping"}]}' '''
+
+[[producer_routes]]
+name = "opencode-free"
+title = "Producer OpenCode free"
+agent = "opencode"
+command = "opencode --model opencode/space-bunny-free"
+limit_patterns = ['usage limit', 'rate limit', 'freetierror', '\b429\b']
+probe = '''opencode run -m opencode/space-bunny-free "Reply with exactly: ok"'''
+probe_timeout = 90
+
+# Machine brakes (tools/worker.py launch and the Guardian read them; 0 = that limit is off). Above a limit no Worker tab is
+# launched, and the Guardian's nudge tells the Producer «Machine busy ... close finished tabs, do not open new».
+# The numbers are THIS machine's: measure with `python tools/worker.py load`, then set your own.
+[limits]
+max_workers = 4          # live Worker tabs of this project (Producer, Blitz and the owner's tabs are not counted)
+min_free_ram_gb = 2.0    # available RAM below this -> busy
+max_load = 85            # whole-machine CPU % above this -> busy
+
+# Remote Control (opt-in, off by default): the Guardian types `/remote-control` ONCE into each Claude Code tab whose title
+# starts with one of `titles` (the bound Producer always qualifies), so the owner gets the session link in the Claude app.
+# Needs a claude.ai login (a Producer route with keys = true is skipped); a tab that never shows `/rc` is reported, not retried.
+[remote_control]
+enabled = false
+titles = ["Producer", "Blitz"]
+
+# The wanted worker seats; the Producer launches them, the Guardian only counts and reminds (count = 0 switches a seat off).
+[[roster]]
+name = "sonnet"
+title_prefix = "Sonnet"
+count = 1
+command = "claude --model claude-sonnet-5-5 --effort medium --dangerously-skip-permissions"
+
+[[roster]]
+name = "deepseek"
+title_prefix = "DS"
+count = 2
+command = "opencode --model opencode-go/deepseek-v4.1-flash"

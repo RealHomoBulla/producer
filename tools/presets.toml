@@ -1,0 +1,195 @@
+# presets.toml — named «producer + workers» presets for the producer skeleton.
+#
+# A preset is a ready route order + roster for the accounts a person actually has, with a one-line
+# «who it is for» and a monthly cost. `tools/setup.py` copies `producer_routes` and `roster` verbatim
+# into `producer.toml`; each entry uses EXACTLY the keys `tools/guardian.py` reads
+# (`_parse_route` / `load_config`), so nothing has to be translated:
+#
+#   [[producer_routes]] / [[roster]] keys: see producer.toml or ROUTING.md §Producer routes.
+#
+# The route ORDER matters: Guardian uses the first live route and steps down on a limit or a dead
+# probe (AUTONOMY.md §2). Commands are the measured launch forms from `work/agents/orca/ROUTING.md`.
+# Prices are the published subscription/list prices as of 2026-10; re-check before you rely on one.
+# Which model fits which job, and where to buy more capacity: `work/agents/knowledge/MODEL_ADVICE.md`.
+
+# ------------------------------------------------------------------ 1. one Claude subscription
+[[preset]]
+name = "solo-claude"
+label = "Solo Claude"
+who = "One person, one Claude subscription (Pro $20 or Max), no other accounts. Claude produces and works; the Guardian wake-up alarm carries the night."
+cost = "$20/mo (Claude Pro) — $100/mo if you already pay for Max"
+notes = "The Producer and both Workers share ONE Claude 5-hour window and one weekly window: more tabs do not add quota. Keep it to two Workers."
+
+[[preset.producer_routes]]
+name = "claude-sonnet"
+title = "Producer Claude Sonnet"
+agent = "claude"
+command = "claude --model claude-sonnet-5-5 --effort medium"
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ["usage limit", "\\d-hour limit", "weekly limit", "rate limit", "out of credits", "\\b429\\b"]
+probe = "claude --version"
+
+[[preset.roster]]
+name = "sonnet"
+title_prefix = "Sonnet"
+count = 1
+command = "claude --model claude-sonnet-5-5 --effort medium"
+
+[[preset.roster]]
+name = "haiku"
+title_prefix = "Haiku"
+count = 1
+command = "claude --model claude-haiku-4-5-20251001"
+
+# ------------------------------------------------------------------ 2. the full paid stack (ours)
+[[preset]]
+name = "claude-max-100"
+label = "Claude Max + Codex + Go + free"
+who = "Someone with several accounts who wants breadth: Claude Max produces, Codex gates, OpenCode Go does bulk work, free lanes fill the rest."
+cost = "$100 Claude Max + $20 Codex Plus + OpenCode Go (usage-based) + free lanes"
+notes = "Our current setup. Producer Opus 5.5 high; Sonnet workers for bounded code; one Luna-max commit gate and Sol 6.1 only when the owner asks; DeepSeek 4.1 Flash on OpenCode Go for bulk; Space Bunny / Muse / MiMo free while they last. Opus/Sol default to MEDIUM effort — high only on the owner's word."
+
+[[preset.producer_routes]]
+name = "claude-opus"
+title = "Producer Claude Opus"
+agent = "claude"
+command = "claude --model claude-opus-5-5 --effort high"
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ["usage limit", "\\d-hour limit", "weekly limit", "rate limit", "out of credits", "\\b429\\b"]
+probe = "claude --version"
+
+[[preset.producer_routes]]
+name = "codex-luna"
+title = "Producer Codex Luna"
+agent = "codex"
+command = "codex -m gpt-6-luna -c model_reasoning_effort=max"
+limit_patterns = ["usage limit", "try again at", "rate limit", "out of credits", "\\b429\\b"]
+probe = "codex --version"
+
+[[preset.producer_routes]]
+name = "claude-opencode-go-deepseek"
+title = "Producer Claude via OpenCode Go"
+agent = "claude"
+keys = true
+shell_windows = "git-bash"
+command = '''CLAUDE_CODE_SIMPLE=1 env -u ANTHROPIC_API_KEY ANTHROPIC_BASE_URL=https://opencode.ai/zen/go ANTHROPIC_AUTH_TOKEN="$OPENCODE_API_KEY" claude --model opencode-go/deepseek-v4.1-flash --effort medium'''
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ["usage limit", "rate limit", "out of credits", "\\b429\\b"]
+probe = '''curl -sS --fail -o /dev/null --max-time 25 https://opencode.ai/zen/go/v1/messages -H "x-api-key: $OPENCODE_API_KEY" -H "anthropic-version: 2023-06-01" -H "x-opencode-session: probe" -H "content-type: application/json" -d '{"model":"deepseek-v4.1-flash","max_tokens":16,"messages":[{"role":"user","content":"ping"}]}' '''
+
+[[preset.roster]]
+name = "sonnet"
+title_prefix = "Sonnet"
+count = 1
+command = "claude --model claude-sonnet-5-5 --effort medium"
+
+[[preset.roster]]
+name = "luna"
+title_prefix = "Luna"
+count = 1
+command = "codex -m gpt-6-luna -c model_reasoning_effort=max"
+
+[[preset.roster]]
+name = "deepseek"
+title_prefix = "DS"
+count = 2
+command = "opencode --model opencode-go/deepseek-v4.1-flash"
+
+[[preset.roster]]
+name = "space-bunny"
+title_prefix = "Bunny"
+count = 2
+command = "opencode --model opencode/space-bunny-free"
+
+[[preset.roster]]
+name = "muse"
+title_prefix = "Muse"
+count = 1
+command = "opencode --model opencode/muse-spark-1.3-contributor-free"
+
+[[preset.roster]]
+name = "mimo"
+title_prefix = "MiMo"
+count = 1
+command = "opencode --model opencode/mimo-v2.6-flash-free"
+
+# ------------------------------------------------------------------ 3. Claude Pro + OpenCode Go
+[[preset]]
+name = "claude-plus-go"
+label = "Claude Pro + OpenCode Go"
+who = "Someone with a $20 Claude Pro and an OpenCode Go key: Claude produces, DeepSeek does the bulk."
+cost = "$20/mo (Claude Pro) + OpenCode Go (usage-based, rolling 5h + monthly window)"
+notes = "Cheapest way to get a strong non-Claude bulk worker beside Claude. Producer is Claude Sonnet medium; if the Claude window runs out the Producer can fall back to DeepSeek on Go through the Claude Code harness."
+
+[[preset.producer_routes]]
+name = "claude-sonnet"
+title = "Producer Claude Sonnet"
+agent = "claude"
+command = "claude --model claude-sonnet-5-5 --effort medium"
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ["usage limit", "\\d-hour limit", "weekly limit", "rate limit", "out of credits", "\\b429\\b"]
+probe = "claude --version"
+
+[[preset.producer_routes]]
+name = "claude-opencode-go-deepseek"
+title = "Producer Claude via OpenCode Go"
+agent = "claude"
+keys = true
+shell_windows = "git-bash"
+command = '''CLAUDE_CODE_SIMPLE=1 env -u ANTHROPIC_API_KEY ANTHROPIC_BASE_URL=https://opencode.ai/zen/go ANTHROPIC_AUTH_TOKEN="$OPENCODE_API_KEY" claude --model opencode-go/deepseek-v4.1-flash --effort medium'''
+args_unattended = "--dangerously-skip-permissions"
+limit_patterns = ["usage limit", "rate limit", "out of credits", "\\b429\\b"]
+probe = '''curl -sS --fail -o /dev/null --max-time 25 https://opencode.ai/zen/go/v1/messages -H "x-api-key: $OPENCODE_API_KEY" -H "anthropic-version: 2023-06-01" -H "x-opencode-session: probe" -H "content-type: application/json" -d '{"model":"deepseek-v4.1-flash","max_tokens":16,"messages":[{"role":"user","content":"ping"}]}' '''
+
+[[preset.roster]]
+name = "sonnet"
+title_prefix = "Sonnet"
+count = 1
+command = "claude --model claude-sonnet-5-5 --effort medium"
+
+[[preset.roster]]
+name = "deepseek"
+title_prefix = "DS"
+count = 2
+command = "opencode --model opencode-go/deepseek-v4.1-flash"
+
+# ------------------------------------------------------------------ 4. no paid subscription at all
+[[preset]]
+name = "budget-free"
+label = "Free lanes only"
+who = "No paid subscription, or trying the skeleton before paying. Free OpenCode models plus AGY."
+cost = "$0 — but the free tiers are unpublished, shared and can vanish without notice"
+notes = "HONEST LIMITS: free OpenCode ids are per account/device and stop without warning (429 or 'usage limit'); Space Bunny's free period is not permanent. AGY has no reliable quota meter. Re-probe before every launch and expect to slow down or stop when they are limited. Not suitable for a serious all-night run."
+
+[[preset.producer_routes]]
+name = "opencode-free"
+title = "Producer OpenCode free"
+agent = "opencode"
+command = "opencode --model opencode/space-bunny-free"
+limit_patterns = ["usage limit", "rate limit", "freetierror", "\\b429\\b"]
+probe = '''opencode run -m opencode/space-bunny-free "Reply with exactly: ok"'''
+probe_timeout = 90
+
+[[preset.roster]]
+name = "space-bunny"
+title_prefix = "Bunny"
+count = 2
+command = "opencode --model opencode/space-bunny-free"
+
+[[preset.roster]]
+name = "muse"
+title_prefix = "Muse"
+count = 1
+command = "opencode --model opencode/muse-spark-1.3-contributor-free"
+
+[[preset.roster]]
+name = "mimo"
+title_prefix = "MiMo"
+count = 1
+command = "opencode --model opencode/mimo-v2.6-flash-free"
+
+[[preset.roster]]
+name = "agy"
+title_prefix = "AGY"
+count = 1
+command = "agy --model gemini-3.8-flash-high --effort high --mode accept-edits --dangerously-skip-permissions"

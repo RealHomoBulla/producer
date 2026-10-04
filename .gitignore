@@ -1,0 +1,22 @@
+# The runtime state a Producer writes and never commits.
+.runtime/
+
+# Python bytecode and test caches.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Editor / OS noise.
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
+
+# Keys must never be committed — they live outside the repo, but guard any stray copy.
+*.env
+keys.env
+
+# Atomic-write temp files and single-writer locks of the tool state.
+*.tmp
+*.lock

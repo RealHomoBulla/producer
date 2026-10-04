@@ -1,0 +1,4 @@
+# Line endings: text files are normalised; shell scripts must stay LF (they run in Git Bash/Linux), Windows batch files CRLF.
+* text=auto
+*.sh text eol=lf
+*.cmd text eol=crlf

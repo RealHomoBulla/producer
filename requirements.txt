@@ -1,0 +1,3 @@
+# Runtime dependencies of the toolchain (everything else is the standard library).
+# IANA timezone names need the tzdata package on Windows; Linux/macOS ship their own.
+tzdata; sys_platform == "win32"
