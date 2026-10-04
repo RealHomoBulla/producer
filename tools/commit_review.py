@@ -163,6 +163,14 @@ def git(*args: str) -> str:
     return done.stdout
 
 
+def _head_exists() -> bool:
+    """False on an unborn branch (a fresh `git init` with no commit) or outside a repository."""
+    done = subprocess.run(["git", "-C", str(PROJECT), "rev-parse", "--verify", "HEAD"],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          creationflags=NO_WINDOW)
+    return done.returncode == 0
+
+
 def family_of(trailer: str) -> str:
     """The model family behind a `Co-Authored-By` value, or `human` when there is no trailer.
 
@@ -194,7 +202,13 @@ def commits(limit: int = 400) -> list[dict]:
     sep = "\x1e"
     fmt = sep.join(["%H", "%h", "%aI", "%an", "%s", "%b",
                     "%(trailers:key=Co-Authored-By,valueonly)"])
-    raw = git("log", f"-{limit}", f"--format={fmt}\x1d")
+    try:
+        raw = git("log", f"-{limit}", f"--format={fmt}\x1d")
+    except RuntimeError as exc:
+        low = str(exc).lower()
+        if "does not have any commits" in low or "not a git repository" in low or "unknown revision" in low:
+            return []  # an unborn branch has an empty ledger, not an error
+        raise
     rows = []
     for chunk in raw.split("\x1d"):
         chunk = chunk.strip("\n")
@@ -552,6 +566,9 @@ def reviewer_track_record(state: dict, reviewer: str) -> tuple[int, int]:
 
 
 def command_status(args: argparse.Namespace) -> int:
+    if not _head_exists():
+        sys.stdout.write("commit review: no commits yet - commit the setup files first\n")
+        return 0
     state = load_state()
     pending = [b for b in state["batches"] if b["status"] == "pending"]
     waiting, baseline_error = _waiting_or_error(state)

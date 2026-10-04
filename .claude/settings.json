@@ -1,18 +1,17 @@
 {
-  "outputStyle": "Concise",
   "promptSuggestionEnabled": false,
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "python tools/hooks.py owner-message", "timeout": 10 }
+          { "type": "command", "command": "python3 tools/hooks.py owner-message || python tools/hooks.py owner-message", "timeout": 10 }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "python tools/hooks.py stop-guard", "timeout": 10 }
+          { "type": "command", "command": "python3 tools/hooks.py stop-guard || python tools/hooks.py stop-guard", "timeout": 10 }
         ]
       }
     ]

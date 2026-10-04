@@ -13,6 +13,9 @@ __pycache__/
 Thumbs.db
 desktop.ini
 
+# The per-project Claude permission mode setup.py writes (mode a or b); machine-local, never committed.
+.claude/settings.local.json
+
 # Keys must never be committed — they live outside the repo, but guard any stray copy.
 *.env
 keys.env

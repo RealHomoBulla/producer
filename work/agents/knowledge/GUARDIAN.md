@@ -31,7 +31,9 @@ incidents), `guardian-state.json` (the bound Producer pane, rotation phase, rout
 ## 2. Add a backup Producer route — worked example: Codex Sol as route 2
 
 1. Open `producer.toml`. Routes are tried **top to bottom**; position = priority.
-2. Paste this block **between** the `claude-opus` and `codex-luna` blocks (that makes it route 2):
+2. Paste this block **anywhere in the route list** — position decides priority: directly after the current first route
+   makes it route 2. After `setup.py` the template's `claude-opus`/`codex-luna` blocks may no longer be there (a preset
+   rewrote them), so anchor on whatever route is currently first, not on those names:
 
 ```toml
 [[producer_routes]]

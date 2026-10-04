@@ -9,6 +9,20 @@ Orca is execution state, never a backlog. `AGENTS.md` wins over any bootstrap/ha
 
 ## 0a. Accounts — on a new machine or when the owner says «подключи мои аккаунты»
 
+**First kickoff question — permission mode (ask ONCE, in the owner's language, before anything else; default a).**
+Owner ~20:2x: «чтобы не заебывали с permission approval — в начале проекта посоветовало поставить авто». Ask:
+«Как разрешения у агентов? **a** — как у автора: без подтверждений (рекомендую для параллельных воркеров и ночи; агенты
+сами правят файлы и запускают команды в этой папке). **b** — авто-правки, команды по списку.»
+- **a (recommended):** set `"skipDangerousModePermissionPrompt": true` in the user's `~/.claude/settings.json` and
+  `"permissions": {"defaultMode": "bypassPermissions"}` in the project's `.claude/settings.local.json` (gitignored); run
+  setup with `--unattended` (mode a also adds Claude's permission-bypass flag to every Claude command).
+- **b:** set `"permissions": {"defaultMode": "acceptEdits", "allow": ["Bash(git:*)", "Bash(python:*)", "Bash(python3:*)",
+  "Bash(npm:*)", "Bash(npx:*)", "Bash(node:*)", "Bash(orca:*)", "PowerShell(git:*)", "PowerShell(python:*)"]}` in
+  `.claude/settings.local.json`.
+`python tools/setup.py` asks the same question (default a) and writes both files by **merging JSON — existing keys are never
+dropped**; `--attended` answers b non-interactively. Never ask twice: **record the choice in `work/agents/state/HANDOVER.md`
+`## Standing until changed`** (one dated line).
+
 The repository carries **no credentials**; every user connects their own. Run `python tools/setup.py` (it detects the CLIs and
 creates `~/.config/producer/keys.env` with variable NAMES only). Ask the owner to log in himself to each CLI he has
 (`claude` `/login`, `codex login`, `opencode auth login`, `agy` …) and to paste key VALUES into `keys.env` himself — never ask

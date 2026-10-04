@@ -144,5 +144,7 @@ def test_the_shipped_settings_wire_both_hooks_to_project_relative_commands():
     assert wired == {"owner-message": True, "stop-guard": True}
     settings = json.loads((hooks.paths.PROJECT / ".claude" / "settings.json").read_text(encoding="utf-8"))
     commands = [h["command"] for group in settings["hooks"].values() for entry in group for h in entry["hooks"]]
-    assert all(c.startswith("python tools/") and ":" not in c.split()[2] for c in commands)  # no absolute path
-    assert settings["outputStyle"] == "Concise"  # the earlier settings are kept
+    # Portable python launcher, project-relative paths, no absolute path (Windows drive / POSIX root).
+    assert all(c.startswith("python3 tools/hooks.py") and "|| python tools/hooks.py" in c for c in commands)
+    assert all("C:" not in c and "/usr" not in c for c in commands)
+    assert "outputStyle" not in settings  # no style file ships, so do not name a style that may not exist

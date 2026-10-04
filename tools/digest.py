@@ -72,6 +72,8 @@ def is_product(path: str) -> bool:
     if len(parts) < 4 or parts[0] != "work" or parts[1] != "agents":
         return True  # not an agents product path; leave watched
     domain = parts[2]
+    if len(parts) == 4 and parts[3] == "README.md":
+        return False  # a folder's own instructions page (e.g. reports/README.md), never a product
     if domain == "orca" and ("/".join(parts[2:4]) in NON_PRODUCT_DIRS
                              or (len(parts) == 4 and not LIVING_PAGE_RE.match(parts[3]))):
         return False  # ops inputs; dated orca reports stay listed

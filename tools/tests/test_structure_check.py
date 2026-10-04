@@ -37,3 +37,14 @@ def test_report_topics_are_free(tmp_path):
     pg = _repo(tmp_path, ["work/agents/reports/ui/2026_01_01_X.md"],
                "- `work/` — w\n- `work/agents/` — a\n- `work/agents/reports/` — r\n")
     assert sc.check(tmp_path, pg) == ([], [])
+
+
+def test_not_a_git_repo_raises_notagitrepo(tmp_path):
+    page = tmp_path / "STRUCTURE.md"
+    page.write_text("", encoding="utf-8")
+    try:
+        sc.check(tmp_path, page)
+    except sc.NotAGitRepo:
+        pass
+    else:  # pragma: no cover - the failure path
+        raise AssertionError("a folder without .git must raise NotAGitRepo, not SystemExit")

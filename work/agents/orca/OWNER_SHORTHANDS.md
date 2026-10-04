@@ -8,6 +8,7 @@ Add a row whenever he introduces a new one (his words + date).
 | he says | do |
 |---|---|
 | «подключи мои аккаунты», «настрой ключи» / "connect my accounts" | `START_PROMPT.md` §0a: setup.py → he logs in himself → he pastes key values into his keys file (`[paths] keys_file`) → probe every route → roster in `producer.toml` |
+| «добавь бекап-продюсера <модель>», «поменяй ростер», «перезапусти гардиана» / "add a backup producer", "change the roster", "restart the guardian" | `work/agents/knowledge/GUARDIAN.md` §1–7: the exact steps, the `producer.toml` snippet and the command that proves each change. The Guardian only counts and reminds; the Producer launches the seat |
 | **«новый проект», «старт», «вот задача: …»** / "new project", "start" (empty brief) | the kickoff, `START_PROMPT.md` §0: brief questions one at a time → `work/БРИФ.md` (`BRIEF.md`) → first plan → first Run |
 | «обнови бриф», «поменялось: …» / "update the brief" | rewrite the touched sections of `work/БРИФ.md` in place, date in the status line, check `TODO.md` rows it affects |
 | `usage`, «лимиты», «квоты», «какие модели доступны» / "limits", "quota" | run `python tools/usage.py` (read-only; `--json` for the machine form; the probes behind it are in `ROUTING.md` §Probes and availability) and answer in his language, short: which routes are alive, what % of each window is left, when it resets |

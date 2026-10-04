@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -106,6 +107,7 @@ GITIGNORE_ENTRIES = (
     "*.py[cod]",
     ".pytest_cache/",
     ".mypy_cache/",
+    ".claude/settings.local.json",
     "*.env",
     "keys.env",
     "*.tmp",
@@ -419,6 +421,115 @@ def ensure_keys_file(path: Path) -> bool:
     return True
 
 
+# ---------------------------------------------------------------- Claude permission mode
+# The first-run question (owner ~20:2x: «чтобы не заебывали с permission approval — … посоветовало поставить авто»):
+# a = no prompts (recommended: parallel Workers and the night run unattended), b = auto-edits with a Bash allow-list.
+PERMISSION_ALLOW_B = (
+    "Bash(git:*)",
+    "Bash(python:*)",
+    "Bash(python3:*)",
+    "Bash(npm:*)",
+    "Bash(npx:*)",
+    "Bash(node:*)",
+    "Bash(orca:*)",
+    "PowerShell(git:*)",
+    "PowerShell(python:*)",
+)
+
+
+def _deep_merge(base: dict, extra: dict) -> dict:
+    """Merge ``extra`` into ``base`` without dropping existing keys; lists are unioned (order kept)."""
+    out = dict(base)
+    for key, value in extra.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        elif isinstance(value, list) and isinstance(out.get(key), list):
+            merged = list(out[key])
+            merged += [item for item in value if item not in merged]
+            out[key] = merged
+        else:
+            out[key] = value
+    return out
+
+
+def _merge_json_file(path: Path, additions: dict) -> bool:
+    """Merge ``additions`` into the JSON object at ``path`` (create if missing); never drop keys.
+
+    Returns whether the file changed. A missing or unparsable file is treated as ``{}`` rather than
+    aborting setup.
+    """
+    path = Path(path)
+    existing: dict = {}
+    if path.is_file():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                existing = loaded
+        except (OSError, ValueError):
+            existing = {}
+    merged = _deep_merge(existing, additions)
+    if merged == existing and path.is_file():
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return True
+
+
+def apply_permission_settings(root: Path, mode: str, home: Path | None = None) -> list[str]:
+    """Write the chosen Claude permission mode, MERGING (never dropping) existing JSON keys.
+
+    ``unattended`` (a): `skipDangerousModePermissionPrompt` in the user's settings and
+    `permissions.defaultMode = bypassPermissions` in the project's `.claude/settings.local.json`.
+    ``attended`` (b): `permissions.defaultMode = acceptEdits` plus the command `allow` list.
+    Returns one human line per file written; ``mode`` other than the two above does nothing.
+    """
+    if mode not in ("unattended", "attended"):
+        return []
+    home = Path(home) if home else Path.home()
+    project_settings = Path(root) / ".claude" / "settings.local.json"
+    notes: list[str] = []
+    if mode == "unattended":
+        user_settings = home / ".claude" / "settings.json"
+        if _merge_json_file(user_settings, {"skipDangerousModePermissionPrompt": True}):
+            notes.append(f"updated {user_settings} (skipDangerousModePermissionPrompt)")
+        if _merge_json_file(project_settings, {"permissions": {"defaultMode": "bypassPermissions"}}):
+            notes.append(f"updated {project_settings} (permissions.defaultMode = bypassPermissions)")
+    else:
+        if _merge_json_file(project_settings,
+                            {"permissions": {"defaultMode": "acceptEdits", "allow": list(PERMISSION_ALLOW_B)}}):
+            notes.append(f"updated {project_settings} (permissions.defaultMode = acceptEdits + allow list)")
+    return notes
+
+
+HANDOVER_STANDING_HEADING = "## Standing until changed"
+
+
+def record_handover_standing(root: Path, text: str) -> bool:
+    """Add one dated line under `## Standing until changed` in HANDOVER.md (idempotent).
+
+    Used to record the permission mode so a Producer started later never asks the question again
+    (`START_PROMPT.md` §0a). No HANDOVER yet (a bare directory) -> nothing to do.
+    """
+    path = Path(root) / "work" / "agents" / "state" / "HANDOVER.md"
+    if not path.is_file():
+        return False
+    body = path.read_text(encoding="utf-8")
+    line = f"- {text}"
+    if line in body:
+        return False
+    if HANDOVER_STANDING_HEADING in body:
+        index = body.index(HANDOVER_STANDING_HEADING) + len(HANDOVER_STANDING_HEADING)
+        newline = body.find("\n", index)
+        body = (body[:newline + 1] + line + "\n" + body[newline + 1:]) if newline != -1 \
+            else body.rstrip() + "\n" + line + "\n"
+    else:
+        before = body.find("## Previous generation")
+        insert_at = before if before != -1 else len(body)
+        body = body[:insert_at].rstrip() + f"\n\n{HANDOVER_STANDING_HEADING}\n{line}\n\n" + body[insert_at:].lstrip("\n")
+    path.write_text(body if body.endswith("\n") else body + "\n", encoding="utf-8")
+    return True
+
+
 # ---------------------------------------------------------------- .gitignore
 def ensure_gitignore(root: Path) -> bool:
     """Append any missing standard entries; return whether the file changed."""
@@ -602,10 +713,17 @@ def _set_guardian_command(text: str, command: str) -> str:
     return "\n".join(out)
 
 
-def render_roster(roster: list[Seat], preset: str = "full") -> list[str]:
+ROSTER_BANNER = "# The wanted worker seats; the Producer launches them, the Guardian only counts and reminds."
+
+
+def render_roster(roster: list[Seat], preset: str = "full", *, banner_present: bool = False) -> list[str]:
+    """The `[[roster]]` blocks. The banner is emitted only when the file does not already carry one
+    (the shipped template does), so re-running setup never duplicates the comment line."""
     if not roster:
         return []
-    lines = ["# The wanted worker seats; the Producer launches them, the Guardian only counts and reminds."]
+    lines: list[str] = []
+    if not banner_present:
+        lines.append(ROSTER_BANNER)
     if preset == "solo-claude":
         lines.append("# solo-claude: ONE Claude subscription. The Producer and these Workers all draw from the "
                      "same 5-hour window.")
@@ -662,7 +780,8 @@ def write_config(path: Path, plan: Plan, *, existing: str | None = None) -> str:
             existing = _set_guardian_command(existing, plan.producer_command)
         else:
             generated["guardian"] = render_guardian(plan)
-        generated["roster"] = render_roster(plan.roster, plan.preset)
+        generated["roster"] = render_roster(plan.roster, plan.preset,
+                                            banner_present="wanted worker seats" in existing)
         if plan.routes:
             generated["producer_routes"] = render_routes(plan.routes)
         if plan.reviewers:
@@ -800,7 +919,15 @@ def install_knowledge_gate(root: Path) -> tuple[bool, str]:
 # ---------------------------------------------------------------- interactive helpers
 def _ask(prompt: str, default: str, input_fn: Callable[[str], str]) -> str:
     suffix = f" [{default}]" if default else ""
-    raw = input_fn(f"{prompt}{suffix}: ").strip()
+    try:
+        raw = input_fn(f"{prompt}{suffix}: ").strip()
+    except EOFError:
+        # An agent shell has no keyboard. Fail with the exact command to use instead, never a traceback.
+        sys.stderr.write(
+            "setup needs a terminal for its questions; from an agent shell run instead:\n"
+            "  python tools/setup.py --non-interactive --name <name> --lang <ru|en> --yes"
+            " [--attended|--unattended]\n")
+        raise SystemExit(2) from None
     return raw or default
 
 
@@ -840,6 +967,7 @@ def run_setup(
     keys_path: Path | None = None,
     git_init: bool = True,
     gate_installer: Callable[[Path], tuple[bool, str]] | None = None,
+    home: Path | None = None,
     probe_runner=subprocess.run,
 ) -> int:
     root = Path(root) if root else PROJECT
@@ -857,6 +985,17 @@ def run_setup(
     config_path = root / "producer.toml"
     existing_text = config_path.read_text(encoding="utf-8", errors="replace") if config_path.is_file() else ""
 
+    # `--list-presets` is a pure, non-interactive listing: it must answer without the identity
+    # prompts (and never crash on a non-TTY stdin). It only needs what is on PATH.
+    found = detect_clis(which)
+    if args.list_presets:
+        presets = load_presets()
+        out("Presets (tools/presets.toml) - `python tools/setup.py --preset <name>`:")
+        for line in render_preset_table(presets, found):
+            out(line)
+        out(f"  {'full':<16} one seat per agent CLI found on this machine [built in]")
+        return 0
+
     # 1. identity
     if interactive:
         existing_name = _existing_project_name(root) or "producer"
@@ -870,7 +1009,6 @@ def run_setup(
     lang = "en" if lang.startswith("en") else "ru"
 
     # 2. CLI detection
-    found = detect_clis(which)
     out("Agent CLIs on PATH (installed — not necessarily logged in):")
     for line in render_cli_table(found):
         out(line)
@@ -885,7 +1023,7 @@ def run_setup(
     # 3. keys file
     created = ensure_keys_file(keys_path)
     if created:
-        out(f"Created {keys_path} (mode 600) with commented variable NAMES only.")
+        out(f"Created {keys_path} with commented variable NAMES only (0600 where the OS supports it).")
         out(f"  Edit it and fill the values you have — nothing is asked for on screen: {keys_path}")
     else:
         out(f"Keys file already exists: {keys_path}")
@@ -895,18 +1033,13 @@ def run_setup(
     explicit_preset = args.preset != "auto"
     apply_guardian = first_run or explicit_preset or args.reset_guardian
     presets = load_presets()
-    if args.list_presets:
-        out("Presets (tools/presets.toml) — `python tools/setup.py --preset <name>`:")
-        for line in render_preset_table(presets, found):
-            out(line)
-        out(f"  {'full':<16} one seat per agent CLI found on this machine [built in]")
-        return 0
     try:
         preset = choose_preset(args.preset, found, presets)
     except ValueError as exc:
         out(f"ERROR: {exc}")
         return 2
-    unattended = args.unattended
+    permission_mode = "unattended" if args.unattended else ("attended" if args.attended else None)
+    unattended = permission_mode == "unattended"
     product_globs: tuple[str, ...]
     if interactive:
         if apply_guardian:
@@ -919,9 +1052,18 @@ def run_setup(
                 preset = choose_preset(answer, found, presets)
             except ValueError:
                 out(f"unknown preset {answer!r}; using {preset}")
-            if not unattended:
-                answer = _ask("Unattended overnight run — skip Claude's permission prompts? (y/n)", "n", input_fn)
-                unattended = answer.lower().startswith("y")
+        if permission_mode is None:  # the first kickoff question; asked once, default a
+            if lang == "ru":
+                prompt = ("Режим разрешений - a: без подтверждений, как у автора (рекомендую для параллельных "
+                          "воркеров и ночи; агенты сами правят файлы и запускают команды в этой папке); "
+                          "b: авто-правки + список команд")
+            else:
+                prompt = ("Permission mode - a: no prompts, the author's setup (recommended for parallel Workers "
+                          "and the night run; agents edit files and run commands here themselves); "
+                          "b: auto-edits + command allow-list")
+            answer = _ask(prompt, "a", input_fn).lower()
+            permission_mode = "unattended" if answer.startswith("a") else "attended"
+            unattended = permission_mode == "unattended"
         globs_raw = _ask("Knowledge-gate product globs (comma separated, empty = gate off)", "", input_fn)
         product_globs = _parse_globs(globs_raw)
     else:
@@ -965,6 +1107,12 @@ def run_setup(
     out(f"Wrote {config_path} ({len(roster)} roster seat(s)).")
     if ensure_gitignore(root):
         out("Updated .gitignore with the standard runtime/key entries.")
+    if permission_mode:
+        for note in apply_permission_settings(root, permission_mode, home=home):
+            out(f"Permission mode '{permission_mode}': {note}")
+        label = "a (no prompts)" if permission_mode == "unattended" else "b (auto-edits, command allow-list)"
+        if record_handover_standing(root, f"{datetime.now():%Y-%m-%d} permission mode {label} chosen at setup"):
+            out("Recorded the permission mode in HANDOVER (Standing until changed).")
     for note in localize_owner_pages(root, lang):
         out(f"Owner page: {note}")
     if git_init and ensure_git_repo(root):
@@ -1051,8 +1199,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--list-presets", action="store_true",
                         help="print the presets with cost and what each needs, then exit")
     parser.add_argument("--unattended", action="store_true",
-                        help="add Claude's permission-bypass flag to every Claude command (overnight "
-                             "runs); never on by default")
+                        help="permission mode a: write skipDangerousModePermissionPrompt / bypassPermissions "
+                             "and add Claude's permission-bypass flag to every Claude command")
+    parser.add_argument("--attended", action="store_true",
+                        help="permission mode b: auto-edits + a Bash allow-list in .claude/settings.local.json "
+                             "(no bypass flag); with neither flag a non-interactive run writes no permission file")
     parser.add_argument("--reset-guardian", action="store_true",
                         help="rewrite [guardian] and [[roster]] even though setup already ran")
     parser.add_argument("--probe", action="store_true",

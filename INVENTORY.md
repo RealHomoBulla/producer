@@ -20,7 +20,7 @@ honest about the files and commands it names.
 | `work/agents/registers/*`, `state/*`, `work/*.md` | the live registers | empty templates in the same shape; English seed pages in `tools/templates/en/` |
 | `.claude/skills/writing-for-agents`, `work-recall`, `docs-checkup` | the source skills | examples and source-specific rules removed; `writing-for-agents` keeps its own `LICENSE` |
 | graphify skill | a third-party skill | **not shipped** (licence not verified): install it yourself if you want a code map |
-| `.claude/settings.json` | the source's local settings | `outputStyle: Concise`, `promptSuggestionEnabled: false`, and two optional fail-open hooks (owner messages, stop guard) |
+| `.claude/settings.json` | the source's local settings | `promptSuggestionEnabled: false` and two optional fail-open hooks (owner messages, stop guard) with a portable `python3 … || python …` launcher |
 | `tools/` | the source toolchain, reduced | stdlib-only: `paths`, `digest`, `unanswered`, `ruling_gate`, `commit_review`, `knowledge_gate`, `context_index`, `blitz`, `producer` (status, bind-run, checkpoint, rotation alarm, **doctor**), `drain_mailbox`/`mailbox_cursor` (per-project mailbox), `orca_cli`, `guardian`, `worker`, `setup`, `usage`, `hooks`, `serve`, `doc_check`, `structure_check`; shared `state_io`, `owner_text`; tests in `tools/tests/` |
 | keys | — | **no key is in this repository.** Each user keeps their own in the file `[paths] keys_file` names (default `~/.config/producer/keys.env`, outside git); provider CLIs keep their own logins. Setup: README «Подключи свои аккаунты» |
 

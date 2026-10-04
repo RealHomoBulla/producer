@@ -34,6 +34,7 @@ DATED_REPORTS_REPORT = "work/agents/reports/2026_09_13/CONTRAST_AUDIT.md"
 DATED_KNOWLEDGE_REPORT = "work/agents/knowledge/2026_09_15_SEO_REFRESH.md"
 SERVICE_STATE = "work/agents/state/HANDOVER.md"
 SERVICE_REGISTERS = "work/agents/registers/OPEN.md"
+REPORTS_README = "work/agents/reports/README.md"
 
 
 @pytest.fixture
@@ -58,7 +59,8 @@ def russian(monkeypatch):
 def _tree(tmp_path, monkeypatch):
     monkeypatch.setattr(DIGEST, "PROJECT", tmp_path)
     for rel in (BRIEF, VERDICT, LIVING_PAGE, OPS_DOC, OPS_BRIEF, DELIVERABLE,
-                DATED_REPORTS_REPORT, DATED_KNOWLEDGE_REPORT, SERVICE_STATE, SERVICE_REGISTERS):
+                DATED_REPORTS_REPORT, DATED_KNOWLEDGE_REPORT, SERVICE_STATE, SERVICE_REGISTERS,
+                REPORTS_README):
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("# product\n\nbody\n", encoding="utf-8")
@@ -76,7 +78,7 @@ def _product(path: Path, mtime: float, lines: int = 40):
 def test_digest_filter_excludes_non_products(tmp_path, monkeypatch):
     _tree(tmp_path, monkeypatch)
     prods = {r["path"] for r in DIGEST.products(30)}
-    for p in (BRIEF, VERDICT, LIVING_PAGE, OPS_DOC, OPS_BRIEF):
+    for p in (BRIEF, VERDICT, LIVING_PAGE, OPS_DOC, OPS_BRIEF, REPORTS_README):
         assert p not in prods, p
     assert DELIVERABLE in prods
 
@@ -100,6 +102,7 @@ def test_is_product_predicate_shapes():
     assert not DIGEST.is_product(VERDICT)
     assert not DIGEST.is_product(LIVING_PAGE)
     assert not DIGEST.is_product(OPS_DOC)
+    assert not DIGEST.is_product(REPORTS_README)
     assert DIGEST.is_product(DELIVERABLE)
     assert DIGEST.is_product(DATED_REPORTS_REPORT)
     # Non-agents paths are left watched rather than decided here.

@@ -2657,6 +2657,9 @@ def command_routes(args: argparse.Namespace) -> int:
         print(f"     {route.command[:110]}")
     if not routes:
         print("no routes configured")
+    elif not args.no_probe:
+        print("probe: alive = the route's own probe command exited 0 - liveness only (usually "
+              "`<cli> --version`), never a model call, login, credit or quota")
     for problem in config.problems:
         print(f"config: {problem}")
     del now

@@ -307,11 +307,16 @@ def doctor_checks() -> list[tuple[str, str, str]]:
             f"run `python tools/setup.py --lang {language}` to localise the untouched seed pages")
     try:
         import structure_check
-        missing, stale = structure_check.check()
-        problem = bool(missing or stale)
-        add("WARN" if problem else "ok",
-            "STRUCTURE.md disagrees with the file tree" if problem else "STRUCTURE.md matches the file tree",
-            "python tools/structure_check.py" if problem else "")
+        try:
+            missing, stale = structure_check.check()
+        except structure_check.NotAGitRepo:
+            add("WARN", "not a git repository (a copied folder or a ZIP has no .git)",
+                "`git init` here - `python tools/setup.py` does it for you - then commit exact paths")
+        else:
+            problem = bool(missing or stale)
+            add("WARN" if problem else "ok",
+                "STRUCTURE.md disagrees with the file tree" if problem else "STRUCTURE.md matches the file tree",
+                "python tools/structure_check.py" if problem else "")
     except Exception:  # noqa: BLE001 - the doctor must not crash on an optional check
         pass
     return rows

@@ -35,6 +35,8 @@ PATH_START = ("work/", "tools/", ".claude/", ".github/")
 ROOT_FILES = {"AGENTS.md", "README.md", "README.en.md", "INVENTORY.md", "CLAUDE.md", "LICENSE",
               "producer.toml", ".gitignore"}
 PLACEHOLDER = re.compile(r"[<>*{}…]|YYYY|\.\.\.|\bN\b|<n>|NNN")
+# Paths a tool writes at runtime and `.gitignore` excludes, so a fresh clone never carries them.
+RUNTIME_WRITTEN = {".claude/settings.local.json"}
 HEADING_PTR = re.compile(r"`?([A-Za-z0-9_./-]+\.md)`?\s*(?:§|«)\s*([^»`\n)]+?)\s*(?:»|`|\)|$|[.,;])")
 
 
@@ -119,7 +121,7 @@ def check(root: Path = ROOT, run_help: bool = False) -> list[str]:
             candidate = first.rstrip(".,;:")
             if not (candidate.startswith(PATH_START) or candidate in ROOT_FILES):
                 continue
-            if PLACEHOLDER.search(candidate) or candidate.endswith("/") and False:
+            if PLACEHOLDER.search(candidate) or candidate in RUNTIME_WRITTEN:
                 continue
             target = root / candidate.rstrip("/")
             if not target.exists() and not alias_exists(candidate, root):

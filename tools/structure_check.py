@@ -22,11 +22,15 @@ FREE_PARENTS = ("work/agents/reports/",)
 BULLET = re.compile(r"^- `([^`]+)`", flags=re.M)
 
 
+class NotAGitRepo(RuntimeError):
+    """`git ls-files` failed: the directory is not a git checkout (a copied folder or a ZIP)."""
+
+
 def tracked_paths(repo: Path = REPO) -> set[str]:
     out = subprocess.run(["git", "-c", "core.quotepath=false", "ls-files"], cwd=repo,
                          capture_output=True, text=True, encoding="utf-8")
     if out.returncode != 0:
-        raise SystemExit(2)
+        raise NotAGitRepo((out.stderr or out.stdout or "git ls-files failed").strip()[:200])
     paths: set[str] = set()
     for line in out.stdout.splitlines():
         parts = line.strip().split("/")
@@ -50,7 +54,11 @@ def check(repo: Path = REPO, page: Path = PAGE) -> tuple[list[str], list[str]]:
 
 
 def main() -> int:
-    missing, stale = check()
+    try:
+        missing, stale = check()
+    except NotAGitRepo as exc:
+        print(f"structure: not a git repository ({exc}) - run `git init` (or `python tools/setup.py`, which does it)")
+        return 2
     for p in missing:
         print(f"MISSING from STRUCTURE.md: {p}")
     for p in stale:

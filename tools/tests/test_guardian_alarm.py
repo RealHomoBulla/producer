@@ -204,8 +204,46 @@ def test_with_another_route_a_limit_hands_over_instead_of_sleeping(workdir):
     assert g.producer_handle != old
 
 
-def test_default_producer_toml_routes_are_loadable_and_ordered():
-    config = guardian.load_config(strict=True)
+# The shipped default route block, kept here verbatim so the test never reads the project's live
+# producer.toml: `setup.py` rewrites that file to the owner's preset, so asserting a preset's route
+# names on it would fail for a stranger who ran setup (the documented flow). Written to a tmp dir
+# and loaded as a "template default".
+DEFAULT_PRODUCER_TOML = """\
+[project]
+name = "producer"
+
+[guardian]
+producer_command = "claude --model claude-opus-5-5 --effort high"
+
+[[producer_routes]]
+name = "claude-opus"
+title = "Producer Claude Opus"
+agent = "claude"
+command = "claude --model claude-opus-5-5 --effort high"
+limit_patterns = ['usage limit', '\\d-hour limit', 'weekly limit', 'rate limit', 'out of credits', '\\b429\\b']
+probe = "claude --version"
+
+[[producer_routes]]
+name = "codex-luna"
+title = "Producer Codex Luna"
+agent = "codex"
+command = "codex -m gpt-6-luna -c model_reasoning_effort=max"
+limit_patterns = ['usage limit', 'try again at', 'rate limit', 'out of credits', '\\b429\\b']
+probe = "codex --version"
+"""
+
+
+def test_default_producer_toml_routes_are_loadable_and_ordered(tmp_path):
+    (tmp_path / "producer.toml").write_text(DEFAULT_PRODUCER_TOML, encoding="utf-8")
+    config = guardian.load_config(tmp_path, strict=True)
     assert config.problems == []
     assert [route.name for route in config.routes][:2] == ["claude-opus", "codex-luna"]
     assert all(route.command and route.limit_patterns for route in config.routes)
+
+
+def test_the_projects_own_producer_toml_always_loads_after_setup():
+    """Whatever preset `setup.py` wrote, the project's live config must load with no problems and
+    complete routes — this is the file a stranger actually ends up with after the setup step."""
+    config = guardian.load_config(strict=True)
+    assert config.problems == []
+    assert config.routes and all(route.name and route.command and route.limit_patterns for route in config.routes)

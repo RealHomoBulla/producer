@@ -221,6 +221,10 @@ in the same turn.
 - Search before reading (see «Where to look»); line ranges over whole files.
 - Never read whole: logs, generated files, big registers — grep them.
 - Do not reread an unchanged file; point at `path:line` instead of pasting.
+- **Python command:** `python` on Windows, `python3` on Linux/macOS; `./producer.sh <cmd>` picks the right one and the shipped
+  Claude hooks try both.
+- **Search index, first run:** `python tools/context_index.py find <words>` answers `no index yet — run build`; run
+  `python tools/context_index.py build` once before a search-heavy session.
 
 ## Cross-agent memory
 

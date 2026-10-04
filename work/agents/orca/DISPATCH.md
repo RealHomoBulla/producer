@@ -55,9 +55,9 @@ now, the third waits as a Task.
 
    | Worker | writes (owns) | reads only | product report |
    |---|---|---|---|
-   | Layout | `site/index.html`, `site/css/layout.css`, `site/css/tokens.css` | `site/content/`, `site/js/` | `reports/site/YYYY_MM_DD_LAYOUT.md` |
-   | Animations | `site/js/animations.js`, `site/css/animations.css` | `site/index.html` (hooks only) | `reports/site/YYYY_MM_DD_ANIMATIONS.md` |
-   | Texts | `site/content/*.md` | the brief, `БРИФ.md` | `reports/site/YYYY_MM_DD_TEXTS.md` |
+   | Layout | `site/index.html`, `site/css/layout.css`, `site/css/tokens.css` | `site/content/`, `site/js/` | `work/agents/reports/site/YYYY_MM_DD_LAYOUT.md` |
+   | Animations | `site/js/animations.js`, `site/css/animations.css` | `site/index.html` (hooks only) | `work/agents/reports/site/YYYY_MM_DD_ANIMATIONS.md` |
+   | Texts | `site/content/*.md` | the brief, `БРИФ.md` | `work/agents/reports/site/YYYY_MM_DD_TEXTS.md` |
 
 3. **A need that crosses a zone is a message, not an edit**: Animations needs a new hook → it asks the Producer (`orca
    orchestration send --type question`), the Producer assigns the one-line change to Layout.

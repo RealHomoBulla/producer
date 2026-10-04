@@ -17,13 +17,15 @@ Follow these steps exactly, in order; do not guess. Speak to the user in their l
    template). Never push to the template repository: `python tools/setup.py` renames a template `origin` to `template`, disables
    pushing to it and prints how to create the user's own repo.
 2. **Check the machine.** `cd <folder>` then `python tools/producer.py doctor`. It is read-only and prints `ok / WARN / FAIL`
-   with the fix for each line. Python 3.11+ and Git are required; fix every `FAIL` before going on.
-3. **Set up.** Ask the user for the project name, the language of the owner pages (`ru` or `en`) and whether the agents may run
-   **unattended overnight** (skips Claude's permission prompts: only on a folder they are happy for agents to edit freely). Then
-   `python tools/setup.py` — or, only if the user agrees to the defaults,
-   `python tools/setup.py --non-interactive --name <name> --lang <ru|en> --yes [--unattended]`. It exits non-zero and prints
-   `NOT READY` when Orca or Claude Code is missing. The user logs in to each CLI **themself** (`claude` → `/login`); never ask for
-   a key or password in chat and never print one.
+   with the fix for each line. Python 3.11+ and Git are required (on Windows install `tzdata` so time-zone names
+   resolve); fix every `FAIL` before going on.
+3. **Set up.** Ask the user for the project name, the language of the owner pages (`ru` or `en`) and the **permission mode**:
+   **a** = no permission prompts (recommended for parallel Workers and the night run; agents edit files and run commands in
+   this folder themselves) or **b** = auto-edits plus a command allow-list. Then `python tools/setup.py` — or, only if the user
+   agrees to the defaults, `python tools/setup.py --non-interactive --name <name> --lang <ru|en> --yes [--attended|--unattended]`.
+   The choice is written into `.claude/settings.local.json` and, for mode a, `~/.claude/settings.json`, by **merging JSON**
+   (existing keys are never dropped). It exits non-zero and prints `NOT READY` when Orca or Claude Code is missing. The user
+   logs in to each CLI **themself** (`claude` → `/login`); never ask for a key or password in chat and never print one.
 4. **Orca.** `doctor` shows the Orca line. If it is missing, tell the user to install the Orca desktop app from the Orca
    project's own site and open it once. **Without Orca you can still be the Producer in this chat** (go to step 6): there are no
    parallel tabs and no Guardian, so you do the Workers' jobs one after another and say so.
@@ -34,7 +36,8 @@ Follow these steps exactly, in order; do not guess. Speak to the user in their l
    `work/agents/orca/START_PROMPT.md` **in full**, and run the kickoff (§0): ask the brief's questions **one at a time** and write
    `work/БРИФ.md` (`BRIEF.md` for an English owner). Never run two Producers for one project at the same time.
 7. **Always:** commit exact paths (`git commit --only -m "…" -- <paths>`), keep keys outside the repo, and put anything the
-   owner must decide into `work/agents/registers/OPEN.md` — not into a long chat message.
+   owner must decide into `work/agents/registers/OPEN.md` — not into a long chat message. `setup.py` leaves the tree dirty
+   on purpose: commit `producer.toml` and the new files under `work/agents/state/` it wrote as the project's first commit.
 
 ## Что нужно установить
 

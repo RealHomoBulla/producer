@@ -6,6 +6,7 @@ sections it owns; and the non-interactive path runs on a throwaway directory wit
 """
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -75,6 +76,7 @@ def fake_which(names):
 
 def _run(root, argv, *, which, out, **kwargs):
     kwargs.setdefault("gate_installer", lambda _root: (True, "ok"))
+    kwargs.setdefault("home", root)  # never touch the real ~/.claude during tests
     return wizard.run_setup(
         root, argv, which=which, environ={}, input_fn=lambda _prompt: "", out=out,
         keys_path=root / "keys.env", git_init=False, **kwargs,
@@ -195,6 +197,7 @@ def test_write_config_preserves_unmanaged_sections_and_replaces_roster(workdir):
     assert "[orca]" in result and 'run = ""' in result
     assert "OLD COMMAND" not in result and "old --cmd" not in result
     assert result.count("[[roster]]") == 1
+    assert result.count("wanted worker seats") == 1  # the existing banner is not duplicated
     assert "claude-sonnet-5-5" in result
     assert "producer_command = " in result
     assert "[setup]" in result and 'preset = "full"' in result
@@ -464,6 +467,82 @@ def test_full_preset_routes_follow_what_is_installed(workdir):
          which=fake_which(["claude", "codex", "orca"]), out=lambda _l: None)
     data = tomllib.loads((workdir / "producer.toml").read_text(encoding="utf-8"))
     assert [r["name"] for r in data["producer_routes"]] == ["claude-sonnet", "codex-luna"]
+
+
+# ------------------------------------------------------------------ Claude permission mode
+def test_permission_mode_a_merges_user_and_project_settings_without_dropping_keys(tmp_path):
+    home, root = tmp_path / "home", tmp_path / "proj"
+    (home / ".claude").mkdir(parents=True)
+    (home / ".claude" / "settings.json").write_text(
+        '{"theme": "dark", "permissions": {"allow": ["Bash(git:*)"]}}', encoding="utf-8")
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "settings.local.json").write_text('{"existing": true}', encoding="utf-8")
+    notes = wizard.apply_permission_settings(root, "unattended", home=home)
+    user = json.loads((home / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert user["theme"] == "dark" and user["skipDangerousModePermissionPrompt"] is True
+    assert user["permissions"]["allow"] == ["Bash(git:*)"]  # existing keys survive
+    project = json.loads((root / ".claude" / "settings.local.json").read_text(encoding="utf-8"))
+    assert project["existing"] is True
+    assert project["permissions"]["defaultMode"] == "bypassPermissions"
+    assert notes
+
+
+def test_permission_mode_b_unions_the_allow_list_and_keeps_existing_keys(tmp_path):
+    root = tmp_path / "proj"
+    (root / ".claude").mkdir(parents=True)
+    (root / ".claude" / "settings.local.json").write_text(
+        '{"permissions": {"allow": ["Bash(ls:*)"], "deny": ["Bash(rm:*)"]}}', encoding="utf-8")
+    wizard.apply_permission_settings(root, "attended", home=tmp_path / "home")
+    project = json.loads((root / ".claude" / "settings.local.json").read_text(encoding="utf-8"))
+    assert project["permissions"]["defaultMode"] == "acceptEdits"
+    allow = project["permissions"]["allow"]
+    assert "Bash(ls:*)" in allow and "Bash(git:*)" in allow
+    assert project["permissions"]["deny"] == ["Bash(rm:*)"]  # untouched
+
+
+def test_apply_permission_settings_creates_missing_files(tmp_path):
+    root = tmp_path / "proj"
+    assert wizard.apply_permission_settings(root, "attended", home=tmp_path / "home")
+    assert (root / ".claude" / "settings.local.json").is_file()
+
+
+def test_non_interactive_unattended_writes_the_permission_files(workdir, tmp_path):
+    home = tmp_path / "home"
+    _run(workdir, ["--non-interactive", "--name", "p", "--yes", "--unattended"],
+         which=fake_which(["claude", "orca"]), out=lambda _l: None, home=home)
+    assert json.loads((home / ".claude" / "settings.json").read_text(encoding="utf-8"))[
+        "skipDangerousModePermissionPrompt"] is True
+    project = json.loads((workdir / ".claude" / "settings.local.json").read_text(encoding="utf-8"))
+    assert project["permissions"]["defaultMode"] == "bypassPermissions"
+
+
+def test_non_interactive_attended_writes_the_allow_list(workdir, tmp_path):
+    _run(workdir, ["--non-interactive", "--name", "p", "--yes", "--attended"],
+         which=fake_which(["claude", "orca"]), out=lambda _l: None, home=tmp_path / "home")
+    project = json.loads((workdir / ".claude" / "settings.local.json").read_text(encoding="utf-8"))
+    assert project["permissions"]["defaultMode"] == "acceptEdits"
+
+
+def test_non_interactive_without_a_permission_flag_writes_nothing(workdir, tmp_path):
+    home = tmp_path / "home"
+    _run(workdir, ["--non-interactive", "--name", "p", "--yes"],
+         which=fake_which(["claude", "orca"]), out=lambda _l: None, home=home)
+    assert not (workdir / ".claude" / "settings.local.json").exists()
+    assert not (home / ".claude" / "settings.json").exists()
+
+
+def test_interactive_permission_question_blank_answer_takes_the_recommended_a(tmp_path):
+    # name, lang, timezone, preset, permission mode (blank -> a), accept roster, globs
+    answers = iter(["int", "", "", "", "", "y", ""])
+    code = wizard.run_setup(tmp_path, [], which=fake_which(["claude", "orca"]), environ={},
+                            input_fn=lambda _prompt: next(answers), out=lambda _l: None,
+                            keys_path=tmp_path / "keys.env", git_init=False,
+                            gate_installer=lambda _r: (True, "ok"), home=tmp_path / "home")
+    assert code == 0
+    user = json.loads((tmp_path / "home" / ".claude" / "settings.json").read_text(encoding="utf-8"))
+    assert user["skipDangerousModePermissionPrompt"] is True
+    data = tomllib.loads((tmp_path / "producer.toml").read_text(encoding="utf-8"))
+    assert data["producer_routes"][0]["args_unattended"] == "--dangerously-skip-permissions"
 
 
 # ------------------------------------------------------------------ presets.toml
